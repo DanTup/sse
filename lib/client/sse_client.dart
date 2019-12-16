@@ -29,23 +29,36 @@ class SseClient extends StreamChannelMixin<String> {
 
   /// [serverUrl] is the URL under which the server is listening for
   /// incoming bi-directional SSE connections.
-  SseClient(String serverUrl) {
+  SseClient(String serverUrl, {void Function(String) logger}) {
     var clientId = Uuid().v1();
     _eventSource =
         EventSource('$serverUrl?sseClientId=$clientId', withCredentials: true);
     _serverUrl = '$serverUrl?sseClientId=$clientId';
-    _outgoingController.stream
-        .listen(_onOutgoingMessage, onDone: _onOutgoingDone);
+    _outgoingController.stream.listen(_onOutgoingMessage, onDone: () {
+      if (logger != null) {
+        logger('SSE: Stream is done!');
+      }
+      _onOutgoingDone();
+    });
     _eventSource.addEventListener('message', _onIncomingMessage);
     _eventSource.addEventListener('control', _onIncomingControlMessage);
     _eventSource.onOpen.listen((_) {
+      if (logger != null) {
+        logger('SSE: Opening!');
+      }
       _errorTimer?.cancel();
     });
     _eventSource.onError.listen((error) {
+      if (logger != null) {
+        logger('SSE: ERROR: $error');
+      }
       if (!(_errorTimer?.isActive ?? false)) {
         // By default the SSE client uses keep-alive.
         // Allow for a retry to connect before giving up.
         _errorTimer = Timer(const Duration(seconds: 5), () {
+          if (logger != null) {
+            logger('SSE: Error Timeout - closing!');
+          }
           _incomingController.addError(error);
           _eventSource.close();
         });
