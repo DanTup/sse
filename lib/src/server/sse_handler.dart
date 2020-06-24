@@ -222,8 +222,16 @@ class SseHandler {
     try {
       var clientId = req.url.queryParameters['sseClientId'];
       var message = await req.readAsString();
-      var jsonObject = json.decode(message) as String;
-      _connections[clientId]?._incomingController?.add(jsonObject);
+      var jsonBatch = json.decode(message);
+      if (jsonBatch is List) {
+        for (var jsonObject in jsonBatch) {
+          _connections[clientId]
+              ?._incomingController
+              ?.add(jsonObject as String);
+        }
+      } else {
+        _connections[clientId]?._incomingController?.add(jsonBatch as String);
+      }
     } catch (e, st) {
       _logger.fine('Failed to handle incoming message. $e $st');
     }

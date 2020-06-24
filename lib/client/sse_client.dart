@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:html';
 
@@ -95,19 +96,23 @@ class SseClient extends StreamChannelMixin<String> {
     close();
   }
 
-  final _messages = StreamController<dynamic>();
+  final _messages = Queue<dynamic>();
+  final _messageEvents = StreamController<Null>();
 
   void _onOutgoingMessage(dynamic message) async {
     _messages.add(message);
+    _messageEvents.add(null);
   }
 
   void _startPostingMessages() async {
-    await for (var message in _messages.stream) {
+    // TODO: We can only use batching if both server + client know about this.
+    await for (var _ in _messageEvents.stream) {
+      final batch = _messages.toList();
+      if (batch.isEmpty) continue;
+      _messages.clear();
       try {
         await HttpRequest.request(_serverUrl,
-            method: 'POST',
-            sendData: jsonEncode(message),
-            withCredentials: true);
+            method: 'POST', sendData: jsonEncode(batch), withCredentials: true);
       } on JsonUnsupportedObjectError catch (e) {
         _logger.warning('Unable to encode outgoing message: $e');
       } on ArgumentError catch (e) {
