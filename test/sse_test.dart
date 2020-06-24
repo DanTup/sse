@@ -49,7 +49,7 @@ void main() {
       var capabilities = Capabilities.chrome
         ..addAll({
           Capabilities.chromeOptions: {
-            'args': ['--headless']
+            'args': [] //'--headless']
           }
         });
       webdriver = await createDriver(desired: capabilities);
@@ -65,6 +65,19 @@ void main() {
       var connection = await handler.connections.next;
       connection.sink.add('blah');
       expect(await connection.stream.first, 'blah');
+    });
+
+    test('Can batch messages', () async {
+      await Future.delayed(const Duration(seconds: 5));
+      var numbers = List.generate(100, (index) => index.toString());
+
+      await webdriver.get('http://localhost:${server.port}');
+      var connection = await handler.connections.next;
+
+      await connection.sink.addStream(Stream.fromIterable(numbers));
+      expect(await connection.stream.take(numbers.length).toList(), numbers);
+
+      await Future.delayed(const Duration(seconds: 30));
     });
 
     test('Multiple clients can connect', () async {
@@ -161,7 +174,7 @@ void main() {
       var capabilities = Capabilities.chrome
         ..addAll({
           Capabilities.chromeOptions: {
-            'args': ['--headless']
+            'args': [] //'--headless']
           }
         });
       webdriver = await createDriver(desired: capabilities);
